@@ -1,0 +1,6 @@
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name 52.53.241.162;
+    return 302 https://52.53.241.162;
+}
