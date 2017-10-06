@@ -1,0 +1,91 @@
+---
+- hosts: localhost
+  remote_user: root
+  become: yes
+  tasks:
+
+    - name: Installs nginx web server
+      yum: pkg=nginx state=installed update_cache=true
+      notify:
+        - start nginx
+
+    - name: Upload default index.html for host
+      copy: src=static_files/index.html dest=/usr/share/nginx/index.html mode=0644
+      register: indexfile
+      ignore_errors: True
+
+
+  - name : Generate an OpenSSL Certificate Signing Request
+	- openssl_csr:
+  		  path: /etc/ssl/certs/nginxssl.crt
+  		  privatekey_path: /etc/ssl/certs/nginxssl.key
+              # create a new file on each host
+  
+    - name : Put the certs in place
+      nginx_sites:
+ 		 ssl:
+    			port: 443
+             cert_name: etc/ssl/certs/nginxssl.crt
+             key_name: /etc/ssl/private/nginxssl.key
+
+
+     - name : copy config file to /etc/nginx/sites-available/default
+           -   copy    :
+                          src: ../nginx-default
+                          dest: /etc/nginx/sites-available/default
+               owner: root
+               group: root
+               mode: 0644
+
+
+      - name: Allow Only 443
+      - ufw:
+  		  rule: allow
+	       proto: tcp
+   		   src: ‘*’
+ 	       port: 443
+
+       - name: Deny All other ports
+       - ufw:
+		      rule: deny
+		      proto: tcp
+		      src: ‘*’
+		      port: *
+
+	  - name: Check that you can connect (GET) to a page and it returns a status 200
+         uri:
+  		   url: http://52.53.241.162
+            return_content: yes
+            register: webpage
+  
+      - name: Fail if AWESOME is not in the page content
+  	   fail:
+ 		   when: “’Hello World’ not in webpage.content"
+        notify:start nginx
+	
+ 	handlers:
+   	 - name: start nginx
+      service: name=nginx state=started
+
+#     - name: Allow only 443
+#     - iptables:
+#         chain: INPUT
+#         source: 52.53.241.162
+#         jump: ACCEPT
+#          destination_port: 443
+ 
+#     -name: Deny All other port
+#      - iptables:
+#         chain: INPUT
+#         source: *
+#         destination_port: *
+#         policy: DROP
+      
+
+#     - name: create ssl config file
+#     - copy: 
+#                  content: "ssl_certificate /etc/ssl/certs/nginxssl.crt;ssl_certificate_key /etc/ssl/private/nginxssl.key;”
+#                  dest: "/etc/nginx/self-signed.conf"
+#                  owner: root
+#                  group: root
+#                  mode: 0644
